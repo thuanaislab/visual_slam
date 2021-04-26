@@ -9,8 +9,8 @@ data_file = "/home/thuan/Desktop/Paper2/augmented_idea/aalto_dataset_git/kitchen
 global_path = "/home/thuan/Desktop/Paper2/augmented_idea/aalto_dataset_git/kitchen1/"
 
 save_name = "left_augmentation"
-
-saved_folder = global_path + save_name
+data_folder_name = "seq_01"
+saved_folder = global_path + save_name +'/'
 
 try:
 	os.mkdir(saved_folder)
@@ -19,20 +19,25 @@ except OSError:
 else:
     print ("Successfully created the directory %s " % saved_folder)
 
-csv_data = pd.read_csv(data_file, sep = " ")
+try:
+	os.mkdir(saved_folder + data_folder_name)
+except OSError:
+    print ("Creation of the directory %s failed" % saved_folder)
+else:
+    print ("Successfully created the directory %s " % saved_folder)
+
+print('_______________________________________________________________________________________')
+
+csv_data = pd.read_csv(data_file, sep = " ", header=None)
 list_path = csv_data.iloc[:,0]
 
-
-
-img = cv.imread('test.png')
-rows,cols,ch = img.shape
 
 
 def cal_points(rows, cols, side = "left", val=1/32):
 	# the side parameter need to be "left" or "right"
 
-	if side != "left" or side != "right":
-		print("__")
+	if side != "left" and side != "right":
+		print("ERROR: the side need to be right or left")
 	
 	o_point_1 = [int(cols/4), int(rows/4)]
 	o_point_2 = [int((3/4)*cols), int(rows/4)]
@@ -54,15 +59,23 @@ def cal_points(rows, cols, side = "left", val=1/32):
 
 # generating the data 
 
-for i in range(len(list_path))
+for i in range(len(list_path)):
+
+	file_name = list_path[i]
 
 
-print(rows,cols,ch)
+	img = cv.imread(global_path + file_name)
+	rows, cols, ch = img.shape
 
-pts1, pts2 = cal_points(rows, cols)
+	pts1, pts2 = cal_points(rows, cols)
 
-pts1 = np.float32(pts1)
-pts2 = np.float32(pts2)
+	pts1 = np.float32(pts1)
+	pts2 = np.float32(pts2)
+	M = cv.getPerspectiveTransform(pts1,pts2)
+	dst = cv.warpPerspective(img,M,(cols, rows))
+	# save the result 
+	cv.imwrite(saved_folder + file_name, dst)
 
-M = cv.getPerspectiveTransform(pts1,pts2)
-dst = cv.warpPerspective(img,M,(cols, rows))
+
+
+
