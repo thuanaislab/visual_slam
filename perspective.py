@@ -5,12 +5,17 @@ import pandas as pd
 import os 
 
 
-data_file = "/home/thuan/Desktop/Paper2/augmented_idea/aalto_dataset_git/kitchen1/seq_01_poses"
-global_path = "/home/thuan/Desktop/Paper2/augmented_idea/aalto_dataset_git/kitchen1/"
+# data_file = "/home/thuan/Desktop/Paper2/augmented_idea/aalto_dataset_git/kitchen1/seq_01_poses"
+global_path = "/home/thuan/Desktop/visual_slam/Data/Original/deer_robot/"
+data_pose = global_path + "poses2"
+data_file = global_path + "cam0/data.csv"
+save_path = "/home/thuan/Desktop/visual_slam/Data/Augmentation/deer_robot/"
 
 save_name = "left_augmentation"
-data_folder_name = "seq_01"
-saved_folder = global_path + save_name +'/'
+data_folder_name = "cam0/data"
+saved_folder = save_path + save_name +'/'
+
+save_infor_path = save_path  + 'poses.txt'
 
 try:
 	os.mkdir(saved_folder)
@@ -28,10 +33,16 @@ else:
 
 print('_______________________________________________________________________________________')
 
-csv_data = pd.read_csv(data_file, sep = " ", header=None)
-list_path = csv_data.iloc[:,0]
+# read the image paths. 
+csv_data = pd.read_csv(data_file)
+#print(csv_data.head(5))
+list_path = csv_data.iloc[:,1]
+# read the pose paths. 
+pose_data = pd.read_csv(data_pose, sep = " ", header = None)
 
+#print("pose data, ", pose_data.head(5))
 
+new_pose_data = {'path':[],'1':[],'2':[],'3':[],'4':[],'5':[],'6':[], '7':[]}
 
 def cal_points(rows, cols, side = "left", val=1/32):
 	# the side parameter need to be "left" or "right"
@@ -60,22 +71,33 @@ def cal_points(rows, cols, side = "left", val=1/32):
 # generating the data 
 
 for i in range(len(list_path)):
+	if i%2 == 0:
+		file_name = list_path[i]
 
-	file_name = list_path[i]
+		#print("file_name: ", file_name)
 
+		img = cv.imread(global_path + data_folder_name + '/' + file_name)
+		rows, cols, ch = img.shape
 
-	img = cv.imread(global_path + file_name)
-	rows, cols, ch = img.shape
+		pts1, pts2 = cal_points(rows, cols)
 
-	pts1, pts2 = cal_points(rows, cols)
+		pts1 = np.float32(pts1)
+		pts2 = np.float32(pts2)
+		M = cv.getPerspectiveTransform(pts1,pts2)
+		dst = cv.warpPerspective(img,M,(cols, rows))
+		# save the result 
+		cv.imwrite(saved_folder + file_name, dst)
 
-	pts1 = np.float32(pts1)
-	pts2 = np.float32(pts2)
-	M = cv.getPerspectiveTransform(pts1,pts2)
-	dst = cv.warpPerspective(img,M,(cols, rows))
-	# save the result 
-	cv.imwrite(saved_folder + file_name, dst)
+		new_pose_data['path'].append(file_name)
+		new_pose_data['1'].append(pose_data.iloc[i,1])
+		new_pose_data['2'].append(pose_data.iloc[i,2])
+		new_pose_data['3'].append(pose_data.iloc[i,3])
+		new_pose_data['4'].append(pose_data.iloc[i,4])
+		new_pose_data['5'].append(pose_data.iloc[i,5])
+		new_pose_data['6'].append(pose_data.iloc[i,6])
+		new_pose_data['7'].append(pose_data.iloc[i,7])
 
+df = pd.DataFrame (new_pose_data, columns = ['path','1','2', '3', '4', '5', '6', '7'])
 
-
+df.to_csv(save_infor_path, sep = ' ', header = False, index = False)
 
