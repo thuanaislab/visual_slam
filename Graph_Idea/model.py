@@ -60,10 +60,29 @@ class Multi_header_attention(nn.Module):
 		return self.merge(x.contiguous().view(batch_size, self.dim*self.num_head,-1))
 
 class AttentionalPropagation(nn.Module):
-	"""docstring for AttentionalPropagation"""
-	def __init__(self, feature_dim):
+	"""AttentionalPropagation"""
+	def __init__(self, num_head: int, f_dimension: int):
 		super().__init__()
-		self.feature_dim = feature_dim
+		self.attn  = Multi_header_attention(num_head, f_dimension)
+		self.mlp = MLP([f_dimension*2, f_dimension*2, f_dimension])
+		nn.init.constant_(self.mlp[-1].bias, 0.0)
+	def forward(self, x, source):
+		message = self.attn(x, source, source)
+		return self.mlp(torch.cat([x, message], dim = 1))
+
+class AttensionalGNN(nn.Module):
+	def __init__(self, num_GNN_layers: int, f_dimension: int):
+		super().__init__()
+		self.layers = nn.ModuleList([
+			AttentionalPropagation(4,f_dimension)
+			for _ in range(num_GNN_layers)])
+	def forward(self, descpt):
+		for layer in self.layers:
+			delta = layer(descpt, descpt)
+			descpt = descpt + delta
+		return descpt
+		
+
 		
 
 
@@ -72,7 +91,7 @@ class MainModel(nn.Module):
 	default_config = {
 		'descriptor_dim': 256,
 		'keypoint_encoder': [32, 64, 128, 256],
-		'GNN_layers': ['self', 'cross'] * 9,
+		'num_GNN_layers': 18,
 	}
 
 	def __init__(self, config):
@@ -80,6 +99,8 @@ class MainModel(nn.Module):
 		self.config = {**self.default_config,**config}
 		self.keypoints_encoder = KeypointEncoder(
 			self.config['descriptor_dim'], self.config['keypoint_encoder'])
+		self.gnn = AttensionalGNN(self.config['num_GNN_layers'], self.config['descriptor_dim'])
+
 
 	def forward(self, data):
 		descpt = data['descriptors']
@@ -89,5 +110,11 @@ class MainModel(nn.Module):
 		# normalize keypoints 
 		keypts = normalize_keypoints(keypts, data['image'].shape)
 		# Keypoint MLP encoder
+		descpt = descpt + self.keypoints_encoder(keypts, scores)
+		# Multi layer transformer network
+		descpt = self.gnn(descpt)
 
-		keypts = descpt + self.keypoints_encoder(keypts, scores)
+		print(descpt[:,:,0])
+
+		return descpt
+

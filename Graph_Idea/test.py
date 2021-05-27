@@ -35,13 +35,6 @@ model = md.MainModel(config['main_model']).eval().to(device)
 
 model(pred)
 
-a = torch.randn(1,256,10)
-b = torch.randn(1,256,15)
-mm = md.Multi_header_attention(4,256)
-
-t = mm(a,b,b)
-
-print(t.shape)
 
 
 # layers = [3, 10, 20]
