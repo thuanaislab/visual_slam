@@ -278,16 +278,27 @@ void FeatureData::saveSIFTB2(const char* szFile)
 	_write(fd,&sift_eof, sizeof(int));
 	_close(fd);
 }
-int FeatureData::write_out_data(const char* szFile) {
+int FeatureData::write_out_data(const char* szFile, bool loc_or_des) {
 	ofstream file;
 	file.open(szFile);
 	int i = 0;
-	while (i < _locData->width() * _locData->height()) {
-		for (int j = 0; j < _locData->width(); j++) {
-			file << *(_locData->data() + i) << " ";
-			i = i + 1;
+	if (loc_or_des) {
+		while (i < _locData->width() * _locData->height()) {
+			for (int j = 0; j < _locData->width(); j++) {
+				file << *(_locData->data() + i) << " ";
+				i = i + 1;
+			}
+			file << "\n";
 		}
-		file << "\n";
+	}
+	else {
+		while (i < _desData->width() * _desData->height()) {
+			for (int j = 0; j < _desData->width(); j++) {
+				file << (int)*(_desData->data() + i) << " ";
+				i = i + 1;
+			}
+			file << "\n";
+		}
 	}
 	file.close();
 	return 1;
@@ -316,10 +327,9 @@ int FeatureData::ReadSIFTB(const char* szFile)
 			_close(fd);
 			_locData->_file_version = version;
 			SetUpdated();
-			/*printf("npoint is %d \r\n", npoint);
-			printf("nLocDim is %d \r\n", nLocDim);
-			for (int i=0; i < 10; i++) {
-				cout << *(_locData->end() + i) << endl;
+
+			/*for (int i=0; i < 100; i++) {
+				cout << *(_desData->data() + i) << endl;
 			}*/
 #ifdef DEBUG_DESCRIPTOR_BUG
 			unsigned char * pb = desData->data();
