@@ -303,6 +303,67 @@ int FeatureData::write_out_data(const char* szFile, bool loc_or_des) {
 	file.close();
 	return 1;
 }
+int FeatureData::ReadLocFromText(const char* txtFile) {
+	ifstream fin(txtFile);
+	int npoint, temp;
+	float x, y;
+	if (!fin) {
+		cout << "Can not find the txt file" << std::endl;
+		return 0;
+	}
+	fin >> npoint >> temp;
+	if (npoint > 0) {
+		ResizeFeatureData(npoint, 5, 128);
+		int j = 0;
+		int t = 0;
+		while (!fin.eof()) {
+			for (int i = 0; i < 5; i++) {
+				if (i == 0||i == 1) {
+					fin >> *(_locData->data() + j);
+					j = j + 1;
+				}
+				else {
+					*(_locData->data() + j) = 0;
+					j = j + 1;
+				}
+			}
+			if (t == npoint - 1) {
+				break;
+			}
+			t = t + 1;
+		}
+		j = 0;
+		t = 0;
+		while (true) {
+			for (int i = 0; i < 128; i++) {
+				*(_desData->data() + j) = 0;
+				j = j + 1;
+			}
+			if (t == npoint - 1||t> npoint - 1) {
+				break;
+			}
+			t = t + 1;
+		}
+	}
+}
+void FeatureData::print_test() {
+	int j = 0;
+	int t = 0;
+	int t2 = 0;
+	while (j < _locData->height()) {
+		for (int i = 0; i < 5; i++) {
+			cout << *(_locData->data() + t) << " ";
+			t = t + 1;
+		}
+		cout << " || ";
+		for (int ii = 0; ii < 128; ii++) {
+			cout << *(_desData->data()+ t2)<< " ";
+			t2 = t2 + 1;
+		}
+		cout << endl;
+		j = j + 1;
+	}
+}
 int FeatureData::ReadSIFTB(const char* szFile)
 {
 	int name, version, npoint, nLocDim, nDesDim, sift_eof, sorted = 0;
