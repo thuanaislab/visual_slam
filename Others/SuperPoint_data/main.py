@@ -240,8 +240,3 @@ for i in range(length_imgPairs):
 #                        fast_viz=False, opencv_display=True,
 #                        opencv_title='matches', small_text = text)
 
-
-
-
-#----------------------------------------#----------------------------------------
-

@@ -303,7 +303,7 @@ int FeatureData::write_out_data(const char* szFile, bool loc_or_des) {
 	file.close();
 	return 1;
 }
-int FeatureData::ReadLocFromText(const char* txtFile) {
+int FeatureData::ReadLocFromText(string txtFile) {
 	ifstream fin(txtFile);
 	int npoint, temp;
 	float x, y;
@@ -336,7 +336,7 @@ int FeatureData::ReadLocFromText(const char* txtFile) {
 		t = 0;
 		while (true) {
 			for (int i = 0; i < 128; i++) {
-				*(_desData->data() + j) = 0;
+				*(_desData->data() + j) = 1;
 				j = j + 1;
 			}
 			if (t == npoint - 1||t> npoint - 1) {

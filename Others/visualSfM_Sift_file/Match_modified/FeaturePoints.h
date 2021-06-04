@@ -191,7 +191,7 @@ public:
 	}
 public:
 	void print_test();
-	int ReadLocFromText(const char* txtFile);
+	int ReadLocFromText(string txtFile);
 	int write_out_data(const char* szFile, bool loc_or_des);
 	void SortSIFT();
 	void SaveSIFTBClip(const char* szFileName, int x1, int x2, int y1, int y2);
