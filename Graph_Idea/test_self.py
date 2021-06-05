@@ -1,4 +1,4 @@
-import model as md 
+import model_self as md 
 import torch 
 from superpoint import SuperPoint
 from utils import read_image
