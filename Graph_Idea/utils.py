@@ -1,5 +1,52 @@
 import cv2
 import torch
+import pandas as pd
+import matplotlib.pyplot as plt 
+
+a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SIFT/cameras_v2.txt"
+b = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SIFT/orig_sift2txt/"
+
+def extract_name(filename):
+    out = ''
+    for i in filename:
+        if i == '.':
+            break
+        else:
+            out = out + i
+    return out 
+
+def readCamP(camera_v2, savePath):
+    # read the camera position from camera_v2.txt
+    index = [16, 19, 5, 14] # [number of images, first path, distance from path to 
+                            #  camera position, distance to next path from current path] 
+    i = 0
+    nImages = 0
+    iPath = index[1]
+    iP = iPath + index[2]
+    iR = iP + 1
+    with open(camera_v2) as f:
+        for line in f:
+            if i == index[0]:
+                nImages = int(line)
+            if nImages != 0:
+                if i == iPath:
+                    print(line)
+                    iPath = iPath + index[3]
+            i = i + 1
+    print(nImages)
+
+
+def scatter_trajectory(data):
+    plt.scatter(data.iloc[:,5], data.iloc[:,6])
+    plt.title('Scatter plot pythonspot.com')
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.show()
+    
+    
+
+
+
 
 
 def process_resize(w, h, resize):
