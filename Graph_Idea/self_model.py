@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sat Jun  5 14:44:54 2021
-This code is mainly based on SuperGlue paper https://github.com/magicleap/SuperGluePretrainedNetwork
+This code is mainly based on SuperGlue paper https://arxiv.org/abs/1911.11763
 @author: thuan 
 """
 
