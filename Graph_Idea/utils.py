@@ -3,14 +3,16 @@ import torch
 import pandas as pd
 import matplotlib.pyplot as plt 
 
-a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SIFT/nvm.nvm.cmvs/00/cameras_v2.txt"
+a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/svm.nvm.cmvs/00/cameras_v2.txt"
 #a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/cameras_v2.txt"
-b = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SIFT/poses.txt"
+b = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/poses.txt"
 
 
 
 
 def extract_name(filename):
+    # to get the name of image file
+    # ex: "123.jpg" -> "123"
     out = ''
     for i in filename:
         if i == '.':
@@ -22,6 +24,7 @@ def extract_name(filename):
 def str2floatL(strline):
     ''' 
     Convert of a list as "1 2 3" into [1, 2, 3]
+    Used to read the output data of visual SfM. camera_v2.txt
     ''' 
     out = []
     temp = ""
@@ -37,7 +40,8 @@ def str2floatL(strline):
         temp = ""
     return out 
 def filterlink(link):
-    link = link.replace("/home/thuan/Desktop/TUM_images_SIFT/","")
+    # used to read the camera_v2.txt file 
+    link = link.replace("/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/","")
     link = link.replace("\n","")
     return link
 
@@ -83,6 +87,7 @@ def scatter_trajectory(data, out_link):
         ==> 
         1.jpg  2 1 1
         22.jpg 1 2 3 
+        ... 
     '''
     
     df = pd.DataFrame(index=range(365),columns=range(7))
