@@ -144,8 +144,65 @@ class MainModel(nn.Module):
         out_t = F.relu(self.bn3(self.fc2(out)))
         out_r = F.relu(self.fc3_r(out_r))
         out_t = F.relu(self.fc3_t(out_t))
-        print(out_r)
-        print(out_t)
 
-        return descpt
+        return torch.cat([out_t, out_r], dim = 1)
 
+class Criterion(nn.Module):
+    def __init__(self, sx=-3, sq=3, learn_smooth_term=True):
+        super(Criterion, self).__init__()
+        self.sx_abs = nn.Parameter(torch.Tensor([sx]), requires_grad = bool(
+            learn_smooth_term))
+        self.sq_abs = nn.Parameter(torch.Tensor([sq]), requires_grad = bool(
+            learn_smooth_term))
+        
+        self.loss_func = nn.MSELoss()
+    
+    def forward(self, poses_pd, poses_gt):
+        
+        s = poses_pd.size()
+        num_poses = s[0]
+        
+        t = poses_pd[:,:3]
+        q = F.normalize(poses_pd[:,3:])
+        t_gt = poses_gt[:,:3]
+        q_gt = F.normalize(poses_gt[:,3:])
+        
+        abs_t_loss = self.loss_func(t, t_gt)
+        abs_q_loss = self.loss_func(q, q_gt)
+        
+        pose_loss = torch.exp(-self.sx_abs)*(abs_t_loss) + self.sx_abs \
+            + torch.exp(-self.sq_abs)*(abs_q_loss) + self.sq_abs
+            
+        return pose_loss
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        

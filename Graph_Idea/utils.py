@@ -192,3 +192,15 @@ def read_image(path, device, resize, rotation, resize_float):
 
     inp = frame2tensor(image, device)
     return image, inp, scales
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

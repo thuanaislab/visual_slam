@@ -200,3 +200,83 @@ class SuperPoint(nn.Module):
             'scores': scores,
             'descriptors': descriptors,
         }
+    def forward_training(self, data):
+        # Shared Encoder
+        x = self.relu(self.conv1a(data['image']))
+        x = self.relu(self.conv1b(x))
+        x = self.pool(x)
+        x = self.relu(self.conv2a(x))
+        x = self.relu(self.conv2b(x))
+        x = self.pool(x)
+        x = self.relu(self.conv3a(x))
+        x = self.relu(self.conv3b(x))
+        x = self.pool(x)
+        x = self.relu(self.conv4a(x))
+        x = self.relu(self.conv4b(x))
+
+        # Compute the dense keypoint scores
+        cPa = self.relu(self.convPa(x))
+        scores = self.convPb(cPa)
+        scores = torch.nn.functional.softmax(scores, 1)[:, :-1]
+        b, _, h, w = scores.shape
+        scores = scores.permute(0, 2, 3, 1).reshape(b, h, w, 8, 8)
+        scores = scores.permute(0, 1, 3, 2, 4).reshape(b, h*8, w*8)
+        scores = simple_nms(scores, self.config['nms_radius'])
+
+        # Extract keypoints
+        keypoints = [
+            torch.nonzero(s > self.config['keypoint_threshold'])
+            for s in scores]
+        scores = [s[tuple(k.t())] for s, k in zip(scores, keypoints)]
+
+        # Discard keypoints near the image borders
+        keypoints, scores = list(zip(*[
+            remove_borders(k, s, self.config['remove_borders'], h*8, w*8)
+            for k, s in zip(keypoints, scores)]))
+        # Keep the k keypoints with highest score
+        if self.config['max_keypoints'] >= 0:
+            keypoints, scores = list(zip(*[
+                top_k_keypoints(k, s, self.config['max_keypoints'])
+                for k, s in zip(keypoints, scores)]))
+        keypoints, scores = list(keypoints), list(scores)
+        for i, (k, s) in enumerate(zip(keypoints, scores)):
+            """
+            Occurence of below condition is very rare as we are sampling keypoints above threshold of 0 itself and then
+            sampling max_keypoints from it. But incase if it happends then we are randomly adding some pixel locations to 
+            without checking any conditions with respect to preexisting keypoints.
+            """
+            if len(k) < self.config['max_keypoints']:
+                print("Rare condition executed")
+                to_add_points = self.config['max_keypoints'] - len(k)
+                random_keypoints = torch.stack([torch.randint(0, w*8, (to_add_points,), dtype=torch.float32, device=k.device), torch.randint(0, h*8, (to_add_points,), dtype=torch.float32, device=k.device)], 1)
+                keypoints[i] = torch.cat([keypoints[i], random_keypoints], dim=0)
+                scores[i] = torch.cat([scores[i], torch.ones(to_add_points, dtype=torch.float32, device=s.device)*0.1], dim=0)
+        # Compute the dense descriptors
+        cDa = self.relu(self.convDa(x))
+        descriptors = self.convDb(cDa)
+        descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
+
+        # Extract descriptors
+        descriptors = [sample_descriptors(k[None], d[None], 8)[0]
+                       for k, d in zip(keypoints, descriptors)]
+        return {
+            'keypoints': keypoints,
+            'scores': scores,
+            'descriptors': descriptors,
+        }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
