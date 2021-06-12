@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jun 12 23:37:44 2021
+
+@author: thuan
+"""
+
 import cv2
 import torch
 import pandas as pd
@@ -7,8 +15,6 @@ a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sif
 #a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/cameras_v2.txt"
 b = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/poses.txt"
 c = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/sort_poses.txt"
-
-
 
 def extract_name(filename):
     # to get the name of image file

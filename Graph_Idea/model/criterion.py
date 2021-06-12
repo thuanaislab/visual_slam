@@ -5,7 +5,6 @@ Created on Sat Jun 12 17:56:03 2021
 
 @author: thuan
 """
-import sys.path.insert(0, "../")
 
 import torch 
 import torch.nn as nn 
@@ -13,7 +12,7 @@ import torch.nn.functional as F
 
 class PoseNetCriterion(nn.Module):
     def __init__(self, sx=0.0, sq=0.0, learn_smooth_term=True):
-        super(Criterion, self).__init__()
+        super(PoseNetCriterion, self).__init__()
         self.sx_abs = nn.Parameter(torch.Tensor([sx]), requires_grad = bool(
             learn_smooth_term))
         self.sq_abs = nn.Parameter(torch.Tensor([sq]), requires_grad = bool(
