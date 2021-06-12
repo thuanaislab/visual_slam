@@ -77,7 +77,7 @@ model = md.MainModel(config['main_model']).train().to(device)
 superpoint = SuperPoint(config.get('superpoint', {})).eval().to(device)
 
 criterion = md.Criterion().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 train_loader = DataLoader(load_data, batch_size = 6, num_workers = 0, shuffle = False)
 
@@ -87,7 +87,7 @@ train_loader = DataLoader(load_data, batch_size = 6, num_workers = 0, shuffle = 
 
 number_batch = len(train_loader)
 his_losses = []
-for epoch in range(600):
+for epoch in range(80):
     optimizer.zero_grad()
     pbar = enumerate(train_loader)
     pbar = tqdm(pbar, total=number_batch)
@@ -121,8 +121,8 @@ for epoch in range(600):
 plt.plot(his_losses)
 plt.show()
 
-
-
+a = pd.DataFrame(his_losses)
+#a.to_csv("/home/thuan/Dropbox/MASTERWORK/Robotics/Experiments/Experiment_1/his_loss_1_2.txt")
 
 
 

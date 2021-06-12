@@ -100,7 +100,7 @@ class MainModel(nn.Module):
     default_config = {
         'descriptor_dim': 256,
         'keypoint_encoder': [32, 64, 128, 256],
-        'num_GNN_layers': 18,
+        'num_GNN_layers': 8,
     }
 
     def __init__(self, config):
@@ -109,17 +109,19 @@ class MainModel(nn.Module):
         self.keypoints_encoder = KeypointEncoder(
             self.config['descriptor_dim'], self.config['keypoint_encoder'])
         self.gnn = AttensionalGNN(self.config['num_GNN_layers'], self.config['descriptor_dim'])
-        self.conv1 = nn.Conv1d(256, 512, 1)
-        self.conv2 = nn.Conv1d(512, 1024, 1)
+        self.conv1 = nn.Conv1d(256, 2048, 1)
+        #self.conv2 = nn.Conv1d(512, 1024, 1)
         
-        self.fc1 = nn.Linear(1024, 512)
-        self.fc2 = nn.Linear(512,40)
+        self.fc1 = nn.Linear(2048, 1024)
+        self.fc2 = nn.Linear(1024,40)
         self.fc3_r = nn.Linear(40, 4)
         self.fc3_t = nn.Linear(40, 3)
-
+        
+        self.bn = nn.BatchNorm1d(2048)
         self.bn1 = nn.BatchNorm1d(512)
         self.bn2 = nn.BatchNorm1d(1024)
         self.bn3 = nn.BatchNorm1d(40)
+
 
 
     def forward(self, data):
@@ -134,46 +136,19 @@ class MainModel(nn.Module):
         # Multi layer transformer network
         descpt = self.gnn(descpt)
         
-        out = F.relu(self.bn1(self.conv1(descpt)))
-        out = F.relu(self.bn2(self.conv2(out)))
+        out = F.relu(self.bn(self.conv1(descpt)))
+        #out = F.relu(self.bn2(self.conv2(out)))
         out = nn.MaxPool1d(out.size(-1))(out)
         out = nn.Flatten(1)(out)
         
-        out = F.relu(self.bn1(self.fc1(out)))
-        out_r = F.relu(self.bn3(self.fc2(out)))
-        out_t = F.relu(self.bn3(self.fc2(out)))
-        out_r = F.relu(self.fc3_r(out_r))
-        out_t = F.relu(self.fc3_t(out_t))
+        out = F.relu(self.bn2(self.fc1(out)))
+        out = F.relu(self.bn3(self.fc2(out)))
+        out_r = self.fc3_r(out)
+        out_t = self.fc3_t(out)
 
         return torch.cat([out_t, out_r], dim = 1)
 
-class Criterion(nn.Module):
-    def __init__(self, sx=-3, sq=3, learn_smooth_term=True):
-        super(Criterion, self).__init__()
-        self.sx_abs = nn.Parameter(torch.Tensor([sx]), requires_grad = bool(
-            learn_smooth_term))
-        self.sq_abs = nn.Parameter(torch.Tensor([sq]), requires_grad = bool(
-            learn_smooth_term))
-        
-        self.loss_func = nn.MSELoss()
-    
-    def forward(self, poses_pd, poses_gt):
-        
-        s = poses_pd.size()
-        num_poses = s[0]
-        
-        t = poses_pd[:,:3]
-        q = F.normalize(poses_pd[:,3:])
-        t_gt = poses_gt[:,:3]
-        q_gt = F.normalize(poses_gt[:,3:])
-        
-        abs_t_loss = self.loss_func(t, t_gt)
-        abs_q_loss = self.loss_func(q, q_gt)
-        
-        pose_loss = torch.exp(-self.sx_abs)*(abs_t_loss) + self.sx_abs \
-            + torch.exp(-self.sq_abs)*(abs_q_loss) + self.sq_abs
-            
-        return pose_loss
+
         
         
         

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/svm.nvm.cmvs/00/cameras_v2.txt"
 #a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/cameras_v2.txt"
 b = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/poses.txt"
-
+c = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/sort_poses.txt"
 
 
 
@@ -47,7 +47,7 @@ def filterlink(link):
 
 def readCamP(camera_v2, savePath):
     # read the camera position from camera_v2.txt
-    index = [16, 19, 3, 14] # [number of images, first path, distance from path to 
+    index = [16, 19, 4, 14] # [number of images, first path, distance from path to 
                             #  camera position, distance to next path from current path] 
     i = 0
     nImages = 0
@@ -66,14 +66,14 @@ def readCamP(camera_v2, savePath):
                 if i == iP:
                     iP = iP + index[3]
                     df.iloc[df_index,1:4] = str2floatL(line)
-                if i == (iP-index[3]+3):
+                if i == (iP-index[3]+2):
                     df.iloc[df_index,4:8] = str2floatL(line)
                     df_index = df_index + 1
             i = i + 1
     if savePath != "":
         df.to_csv(savePath, header = False, index = False, sep = " ")
     #print(df)
-    #scatter_trajectory(df)
+    scatter_trajectory(df, c)
 
 
 def scatter_trajectory(data, out_link):
