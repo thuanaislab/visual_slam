@@ -17,7 +17,7 @@ import argparse
 parser = argparse.ArgumentParser()
 
 
-parser.add_argument("--batch_size", type=int, default=8)
+parser.add_argument("--batch_size", type=int, default=24)
 parser.add_argument("--shuffle", type=int, choices=[0, 1], default=0)
 parser.add_argument("--num_workers", type=int, default=0,
                     help="The number of threads employed by the data loader")
@@ -27,7 +27,7 @@ parser.add_argument("--sx", type=float, default=-3,
 parser.add_argument("--sq", type=float, default=-3,
                     help="Smooth term for rotation")
 parser.add_argument("--learn_sxsq", type=int,
-                    choices=[0, 1], default=1, help="whether learn sx, sq")
+                    choices=[0, 1], default=0, help="whether learn sx, sq")
 parser.add_argument("--optimizer", type=str,
                     choices=['sgd', 'adam', 'rmsprop'], default='adam', help="The optimization strategy")
 parser.add_argument("--lr", type=float, default=1e-4,
@@ -38,9 +38,9 @@ parser.add_argument("--lr_decay", type=float, default=1,
 
 parser.add_argument('--seed', type=int, default=0,
                     help='')
-parser.add_argument('--GPUs', type=int, default=1,
+parser.add_argument('--GPUs', type=int, default=2,
                     help='The number of GPUs employed.')
-parser.add_argument('--n_epochs', type=int, default=100,
+parser.add_argument('--n_epochs', type=int, default=600,
                     help='The # training epochs')
 
 parser.add_argument('--do_val', type=int,
@@ -54,7 +54,9 @@ parser.add_argument('--checkpoint_file', type=str, default=None)
 parser.add_argument('--logdir', type=str, default='log',
                     help='The directory of logs')
 parser.add_argument('--print_freq', type=int, default=1,
-                    help='Print frequency')
+                    help='Print frequency every n epoch')
+parser.add_argument('--save_pairs', type=int, default = 0,
+                    help = 'save the prediction & target at snapshot')
 
 # dataloader
 parser.add_argument('--data_dir', type=str, default=

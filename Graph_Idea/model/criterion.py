@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F 
 
 class PoseNetCriterion(nn.Module):
-    def __init__(self, sx=0.0, sq=0.0, learn_smooth_term=True):
+    def __init__(self, sx=-3.0, sq=-3.0, learn_smooth_term=True):
         super(PoseNetCriterion, self).__init__()
         self.sx_abs = nn.Parameter(torch.Tensor([sx]), requires_grad = bool(
             learn_smooth_term))
@@ -22,6 +22,7 @@ class PoseNetCriterion(nn.Module):
     
     def forward(self, poses_pd, poses_gt):
         
+       
         s = poses_pd.size()
         num_poses = s[0]
         

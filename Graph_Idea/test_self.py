@@ -1,12 +1,14 @@
-import self_model as md
+import model.self_model as md
 import torch 
-from superpoint import SuperPoint
-from utils import read_image
+from model.superpoint import SuperPoint
+from model.utils import read_image
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd 
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt 
+from model.criterion import PoseNetCriterion
+from model.optimizer import Optimizer
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 resize = [-1] #[640, 480]
@@ -15,7 +17,9 @@ config = {
     'superpoint': {
         'nms_radius': 4,
         'keypoint_threshold':0.0,
-        'max_keypoints': 1024
+        'max_keypoints': 1024,
+        'pre_train':
+            '/home/thuan/Desktop/visual_slam/Graph_Idea/weights/superpoint_v1.pth'
     },
     'main_model':{
         'weight': 'indoor'
@@ -76,9 +80,16 @@ load_data = CRDataset_train(poses_path, images_path, device)
 model = md.MainModel(config['main_model']).train().to(device)
 superpoint = SuperPoint(config.get('superpoint', {})).eval().to(device)
 
-criterion = md.Criterion().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-
+criterion = PoseNetCriterion().to(device)
+#optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer_configs = {
+    'method': 'adam',
+    'base_lr': 1e-4,
+    'weight_decay': 5e-4,
+    'lr_decay': 1,
+    'lr_stepvalues': [k/4*400 for k in range(1, 5)]
+}
+optimizer = Optimizer(model.parameters(),**optimizer_configs)
 train_loader = DataLoader(load_data, batch_size = 6, num_workers = 0, shuffle = False)
 
 # model.eval()
@@ -87,8 +98,8 @@ train_loader = DataLoader(load_data, batch_size = 6, num_workers = 0, shuffle = 
 
 number_batch = len(train_loader)
 his_losses = []
-for epoch in range(80):
-    optimizer.zero_grad()
+for epoch in range(400):
+    optimizer.learner.zero_grad()
     pbar = enumerate(train_loader)
     pbar = tqdm(pbar, total=number_batch)
     count = 0
@@ -110,8 +121,8 @@ for epoch in range(80):
         out = model(superglue_inputs)
         total_loss = criterion(out, poses_gt)
         total_loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+        optimizer.learner.step()
+        optimizer.learner.zero_grad()
         train_loss += total_loss.item() * n_samples
         count += n_samples
     train_loss /= count

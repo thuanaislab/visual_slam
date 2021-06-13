@@ -21,6 +21,7 @@ class Optimizer:
             self.learner = optim.SGD(params, lr=self.base_lr,
                                      weight_decay=weight_decay, **kwargs)
         elif self.method == 'adam':
+            print("OPTIMIZER: ---  adam")
             self.lr_decay = kwargs.pop('lr_decay')
             self.lr_stepvalues = sorted(kwargs.pop('lr_stepvalues'))
             self.learner = optim.Adam(params, lr=self.base_lr,

@@ -100,7 +100,7 @@ class MainModel(nn.Module):
     default_config = {
         'descriptor_dim': 256,
         'keypoint_encoder': [32, 64, 128, 256],
-        'num_GNN_layers': 8,
+        'num_GNN_layers': 9,
     }
 
     def __init__(self, config):
