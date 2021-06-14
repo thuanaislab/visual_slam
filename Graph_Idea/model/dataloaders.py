@@ -29,8 +29,8 @@ class CRDataset_test(Dataset):
         img_path = self.images_path + self.df.iloc[idx,0]
         _, img, _ = read_image(img_path, self.device, self.resize,0 ,False)
         features = self.superpoint({"image": img})
-        # _,_,m,n = img.shape
-        features["image"] = img
+        _,_,m,n = img.shape
+        features["image"] = img.view(1,m,n)
         # print(img.shape)
         target = torch.Tensor(target)
         for k in features:

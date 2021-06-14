@@ -10,6 +10,7 @@ import cv2
 import torch
 import pandas as pd
 import matplotlib.pyplot as plt 
+import numpy as np
 
 a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/svm.nvm.cmvs/00/cameras_v2.txt"
 #a = "/home/thuan/Desktop/visual_slam/Data_for_superglue/cameras_v2.txt"
@@ -200,8 +201,17 @@ def read_image(path, device, resize, rotation, resize_float):
     return image, inp, scales
 
     
-    
-    
+def quaternion_angular_error(q1, q2):
+  """
+  angular error between two quaternions
+  :param q1: (4, )
+  :param q2: (4, )
+  :return:
+  """
+  d = abs(np.dot(q1, q2))
+  d = min(1.0, max(-1.0, d))
+  theta = 2 * np.arccos(d) * 180 / np.pi
+  return theta
     
     
     

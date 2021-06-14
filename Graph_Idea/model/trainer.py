@@ -16,6 +16,7 @@ from .superpoint import SuperPoint
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
+import time 
 
 class Trainer(object):
     
@@ -54,6 +55,7 @@ class Trainer(object):
     def train(self):
         save_first_target = True
         number_batch = len(self.train_loader)
+        total_time = 0.0
         for epoch in range(1,self.n_epochs+1):
             lr = self.optimizer.adjust_lr(epoch) # adjust learning rate
             # SAVE
@@ -68,6 +70,9 @@ class Trainer(object):
             count = 0
             pbar = enumerate(self.train_loader)
             pbar = tqdm(pbar, total=number_batch)
+            
+            start_time = time.time() # time at begining of each epoch 
+            
             if (epoch % self.configs.snapshot==0):
                 imgs_list = []
                 predict_ar = np.zeros((1,7))
@@ -96,6 +101,8 @@ class Trainer(object):
                 self.optimizer.learner.zero_grad()
                 train_loss += loss.item() * n_samples
                 count += n_samples
+            total_batch_time = (time.time() - start_time)/60 # time at the end of each epoch 
+            total_time += total_batch_time
             train_loss /= count
             if (epoch % self.configs.snapshot==0):
                 predict_ar = np.delete(predict_ar, 0, 0)
@@ -111,10 +118,11 @@ class Trainer(object):
                 pd.DataFrame([train_loss]).to_csv(file3, header=False, index = False, sep = " ")
             self.his_loss.append(train_loss)
             if epoch % self.configs.print_freq == 0:
-                print("\nEpoch {} ---lr: {} --- Loss: {}\n".format(epoch,lr, train_loss))
+                print("\nEpoch {} --- Loss: {} --- comp_time: {}\n".format(epoch, train_loss,total_batch_time))
         
         file_his = os.path.join(self.logdir, 'his_loss.txt')
-        pd.DataFrame(self.his_loss).to_csv(file_his, header = False, index = False)
+        pd.DataFrame([self.his_loss]).to_csv(file_his, header = False, index = False)
+        print("\nTraining Completed  --- Total training time: {}\n".format(total_time))
     
     def save_pairs(self, epoch):
         print("\nSaving the prediction at epoch {}\n".format(epoch))

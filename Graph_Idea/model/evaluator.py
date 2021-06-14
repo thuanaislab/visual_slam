@@ -12,15 +12,49 @@ import torch.nn as nn
 import copy 
 import os
 from .superpoint import SuperPoint
+from .utils import quaternion_angular_error
 from tqdm import tqdm
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt 
 
+
+def plot_result(pred_poses, targ_poses, data_set):
+    fig = plt.figure()
+
+    ax = fig.add_subplot(111, projection='3d')
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1)
+    
+    # plot on the figure object
+    ss = max(1, int(len(data_set) / 1000))  # 100 for stairs
+    # scatter the points and draw connecting line
+    x = np.vstack((pred_poses[::ss, 0].T, targ_poses[::ss, 0].T))
+    y = np.vstack((pred_poses[::ss, 1].T, targ_poses[::ss, 1].T))
+    z = np.vstack((pred_poses[::ss, 2].T, targ_poses[::ss, 2].T))
+    for xx, yy, zz in zip(x.T, y.T, z.T):
+      ax.plot(xx, yy, zs=zz, c='b')
+    ax.scatter(x[0, :], y[0, :], zs=z[0, :], c='r', depthshade=0)
+    ax.scatter(x[1, :], y[1, :], zs=z[1, :], c='g', depthshade=0)
+    ax.view_init(azim=119, elev=13)
+    plt.show()
+
+def get_errors(target_t, target_q, predict_t, predict_q):
+    t_criterion = lambda t_pred, t_gt: np.linalg.norm(t_pred - t_gt)
+    q_criterion = quaternion_angular_error
+    t_loss = np.asarray([t_criterion(p, t) for p, t in zip(predict_t,
+                                                       target_t)])
+    q_loss = np.asarray([q_criterion(p, t) for p, t in zip(predict_q,
+                                                           target_q)])
+    print ('Error in translation: median {:3.2f} m,  mean {:3.2f} m\n' \
+        'Error in rotation: median {:3.2f} degrees, mean {:3.2f} degree'.format(np.median(t_loss), np.mean(t_loss),
+                        np.median(q_loss), np.mean(q_loss)))
 
 
 class Evaluator(object):
     
-    def __init__(self, model, dataset, criterion, configs):
+    def __init__(self, model, dataset, criterion, configs, superPoint_config):
         self.model = model
+        self.sp_model = SuperPoint(superPoint_config).eval()
         self.criterion = criterion
         self.configs = configs
         self.logdir = self.configs.logdir
@@ -30,12 +64,13 @@ class Evaluator(object):
         
         # data loader 
         
-        # self.data_loader = torch.utils.data.DataLoader(dataset, batch_size=self.configs.batch_size,
-        #                                                num_workers=self.configs.num_workers)
-        self.data_loader = dataset
+        self.data_loader = torch.utils.data.DataLoader(dataset, batch_size=self.configs.batch_size,
+                                                        num_workers=self.configs.num_workers)
+        #self.data_loader = dataset
         self.model = nn.DataParallel(self.model, device_ids=range(self.configs.GPUs))
         if self.configs.GPUs > 0:
             self.model.cuda()
+            self.sp_model.cuda()
             self.criterion.cuda()
         self.load_model()
     
@@ -85,14 +120,24 @@ class Evaluator(object):
         number_batch = len(self.data_loader)
         self.model.eval()
         total_loss = 0.0 
-        for i in range(number_batch):
+        pbar = enumerate(self.data_loader)
+        for batch, (images, poses_gt, imgs) in pbar:
             if self.configs.GPUs > 0:
-                poses_gt = self.data_loader[i]['target'].cuda(non_blocking=True).view(1,7)
-            else:
-                poses_gt = self.data_loader[i]['target'].view(1,7)
-            _inputs = self.data_loader[i]['features']
-            predict = self.model(_inputs)
-            print(self.data_loader[i]['names'])
+                images = images.cuda(non_blocking=True)
+                poses_gt = poses_gt.cuda(non_blocking=True)
+            n_samples = images.shape[0]
+            with torch.no_grad():
+                super_point_results = self.sp_model.forward_training({"image": images})
+                keypoints = torch.stack(super_point_results['keypoints'], 0)
+                descriptors = torch.stack(super_point_results['descriptors'], 0)
+                scores = torch.stack(super_point_results['scores'], 0)
+                _inputs = {
+                    "keypoints": keypoints,
+                    "descriptors": descriptors,
+                    "image": images,
+                    "scores": scores}
+                predict = self.model(_inputs)
+            print(imgs)
             print(predict)
             print(poses_gt)
             loss = self.criterion(predict, poses_gt)

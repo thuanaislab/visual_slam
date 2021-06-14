@@ -27,7 +27,7 @@ parser.add_argument("--sx", type=float, default=-3,
 parser.add_argument("--sq", type=float, default=-3,
                     help="Smooth term for rotation")
 parser.add_argument("--learn_sxsq", type=int,
-                    choices=[0, 1], default=0, help="whether learn sx, sq")
+                    choices=[0, 1], default=1, help="whether learn sx, sq")
 parser.add_argument("--optimizer", type=str,
                     choices=['sgd', 'adam', 'rmsprop'], default='adam', help="The optimization strategy")
 parser.add_argument("--lr", type=float, default=1e-4,
@@ -40,7 +40,7 @@ parser.add_argument('--seed', type=int, default=0,
                     help='')
 parser.add_argument('--GPUs', type=int, default=2,
                     help='The number of GPUs employed.')
-parser.add_argument('--n_epochs', type=int, default=600,
+parser.add_argument('--n_epochs', type=int, default=1000,
                     help='The # training epochs')
 
 parser.add_argument('--do_val', type=int,
