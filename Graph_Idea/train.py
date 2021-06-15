@@ -40,11 +40,11 @@ parser.add_argument('--seed', type=int, default=0,
                     help='')
 parser.add_argument('--GPUs', type=int, default=2,
                     help='The number of GPUs employed.')
-parser.add_argument('--n_epochs', type=int, default=1000,
+parser.add_argument('--n_epochs', type=int, default=500,
                     help='The # training epochs')
 
 parser.add_argument('--do_val', type=int,
-                    choices=[0, 1], default=0, help='Whether do validation when training')
+                    choices=[0, 1], default=1, help='Whether do validation when training')
 
 parser.add_argument('--snapshot', type=int, default=20,
                     help='The snapshot frequency')

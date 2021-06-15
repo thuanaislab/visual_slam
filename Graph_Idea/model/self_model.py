@@ -12,7 +12,9 @@ from torch import nn
 import torch.nn.functional as F
 import copy
 
-def MLP(channels: list, do_bn=True):
+BN_MOMENTUM = 0.1
+
+def MLP(channels: list, do_bn=False):
     # Multi layer perceptron 
     n = len(channels)
     layers = []
@@ -21,7 +23,7 @@ def MLP(channels: list, do_bn=True):
             nn.Conv1d(channels[i-1], channels[i], kernel_size = 1, bias =True))
         if i < (n-1):
             if do_bn:
-                layers.append(nn.BatchNorm1d(channels[i]))
+                layers.append(nn.BatchNorm1d(channels[i], momentum=BN_MOMENTUM))
             layers.append(nn.ReLU())
     return nn.Sequential(*layers)
 
@@ -117,10 +119,10 @@ class MainModel(nn.Module):
         self.fc3_r = nn.Linear(40, 4)
         self.fc3_t = nn.Linear(40, 3)
         
-        self.bn = nn.BatchNorm1d(2048)
-        self.bn1 = nn.BatchNorm1d(512)
-        self.bn2 = nn.BatchNorm1d(1024)
-        self.bn3 = nn.BatchNorm1d(40)
+        self.bn = nn.BatchNorm1d(2048, momentum=BN_MOMENTUM)
+        self.bn1 = nn.BatchNorm1d(512, momentum=BN_MOMENTUM)
+        self.bn2 = nn.BatchNorm1d(1024, momentum=BN_MOMENTUM)
+        self.bn3 = nn.BatchNorm1d(40, momentum=BN_MOMENTUM)
 
 
 
@@ -136,13 +138,22 @@ class MainModel(nn.Module):
         # Multi layer transformer network
         descpt = self.gnn(descpt)
         
-        out = F.relu(self.bn(self.conv1(descpt)))
+        # out = F.relu(self.bn(self.conv1(descpt)))
+        # #out = F.relu(self.bn2(self.conv2(out)))
+        # out = nn.MaxPool1d(out.size(-1))(out)
+        # out = nn.Flatten(1)(out)
+        
+        # out = F.relu(self.bn2(self.fc1(out)))
+        # out = F.relu(self.bn3(self.fc2(out)))
+        
+        out = F.relu(self.conv1(descpt))
         #out = F.relu(self.bn2(self.conv2(out)))
         out = nn.MaxPool1d(out.size(-1))(out)
         out = nn.Flatten(1)(out)
         
-        out = F.relu(self.bn2(self.fc1(out)))
-        out = F.relu(self.bn3(self.fc2(out)))
+        out = F.relu(self.fc1(out))
+        out = F.relu(self.fc2(out))
+        
         out_r = self.fc3_r(out)
         out_t = self.fc3_t(out)
 

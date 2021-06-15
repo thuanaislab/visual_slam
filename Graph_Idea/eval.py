@@ -13,15 +13,14 @@ from model.criterion import PoseNetCriterion
 from model.dataloaders import CRDataset_train
 import argparse
 import pandas as pd
-import torch.nn.functional as F 
-import torch
+
 
 
 
 parser = argparse.ArgumentParser()
 
 
-parser.add_argument("--batch_size", type=int, default=24)
+parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--shuffle", type=int, choices=[0, 1], default=0)
 parser.add_argument("--num_workers", type=int, default=0,
                     help="The number of threads employed by the data loader")
@@ -36,7 +35,7 @@ parser.add_argument("--learn_sxsq", type=int,
 
 parser.add_argument('--GPUs', type=int, default=1,
                     help='The number of GPUs employed.')
-parser.add_argument('--load_epoch', type=int, default=1000,
+parser.add_argument('--load_epoch', type=int, default=180,
                     help='The epoch number will be loaded')
 
 # log
@@ -64,7 +63,7 @@ parser.add_argument('--num_GNN_layers', type=int, default=9,
                     help="number of self attention graph network")
 # Results 
 parser.add_argument('--prediction_result', type = str, default=
-                    "/home/thuan/Desktop/visual_slam/Graph_Idea/log/prediction_epoch_1000.txt",
+                    "/home/thuan/Desktop/visual_slam/Graph_Idea/log/best_prediction.txt",
                     help='path to prediction poses')
 
 args = parser.parse_args()
@@ -101,18 +100,7 @@ predict = predict.iloc[:,1:].to_numpy()
 
 plot_result(predict, target, data_loader)
 
-
-target_t = target[:,:3]
-target_q = target[:,3:]
-predict_t = predict[:,:3]
-predict_q = predict[:,3:]
-# get_errors(predict, target)
-
-print(predict_q.shape)
-predict_q = F.normalize(torch.from_numpy(predict_q))
-predict_q = predict_q.numpy()
-print(predict_q.shape)
-get_errors(target_t, target_q, predict_t, predict_q)
+get_errors(target, predict)
 
 # eval_ = Evaluator(model, data_loader, criterion, args, superPoint_config)
 # eval_.evaler()

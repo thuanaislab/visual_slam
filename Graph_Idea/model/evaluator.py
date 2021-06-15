@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, '../')
 import torch
 import torch.nn as nn 
+import torch.nn.functional as F 
 import copy 
 import os
 from .superpoint import SuperPoint
@@ -20,8 +21,8 @@ import matplotlib.pyplot as plt
 
 
 def plot_result(pred_poses, targ_poses, data_set):
+    # this function is based on https://github.com/NVlabs/geomapnet
     fig = plt.figure()
-
     ax = fig.add_subplot(111, projection='3d')
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1)
     
@@ -38,16 +39,26 @@ def plot_result(pred_poses, targ_poses, data_set):
     ax.view_init(azim=119, elev=13)
     plt.show()
 
-def get_errors(target_t, target_q, predict_t, predict_q):
+def get_errors(target, predict, show = True):
+    target_t = target[:,:3]
+    target_q = target[:,3:]
+    predict_t = predict[:,:3]
+    predict_q = predict[:,3:]
+
+    predict_q = F.normalize(torch.from_numpy(predict_q))
+    predict_q = predict_q.numpy()
+
     t_criterion = lambda t_pred, t_gt: np.linalg.norm(t_pred - t_gt)
     q_criterion = quaternion_angular_error
     t_loss = np.asarray([t_criterion(p, t) for p, t in zip(predict_t,
                                                        target_t)])
     q_loss = np.asarray([q_criterion(p, t) for p, t in zip(predict_q,
                                                            target_q)])
-    print ('Error in translation: median {:3.2f} m,  mean {:3.2f} m\n' \
-        'Error in rotation: median {:3.2f} degrees, mean {:3.2f} degree'.format(np.median(t_loss), np.mean(t_loss),
-                        np.median(q_loss), np.mean(q_loss)))
+    if show:
+        print ('Error in translation: median {:3.2f} m,  mean {:3.2f} m\n' \
+            'Error in rotation: median {:3.2f} degrees, mean {:3.2f} degree'.format(np.median(t_loss), np.mean(t_loss),
+                            np.median(q_loss), np.mean(q_loss)))
+    return np.mean(t_loss), np.mean(q_loss)
 
 
 class Evaluator(object):
@@ -143,8 +154,8 @@ class Evaluator(object):
             loss = self.criterion(predict, poses_gt)
             total_loss += loss.item()
             print('loss {}'.format(loss.item()))
-            break
+            #break
         mean_total_loss = total_loss/number_batch
-        # print("Recalculation Loss at epoch {}\n Loss: {}".format(self.load_epoch, mean_total_loss))
+        print("Recalculation Loss at epoch {}\n Loss: {}".format(self.load_epoch, mean_total_loss))
 
     
