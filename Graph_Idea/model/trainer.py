@@ -10,6 +10,7 @@ sys.path.insert(0, '../')
 import torch
 import torch.nn as nn 
 from .optimizer import Optimizer
+from .evaluator import get_errors
 import copy 
 import os
 from .superpoint import SuperPoint
@@ -22,7 +23,8 @@ import copy
 
 class Trainer(object):
     
-    def __init__(self, model, optimizer_config, train_dataset, criterion, configs, superpoint_configs):
+    def __init__(self, model, optimizer_config, train_dataset, test_dataset, test_target,
+                 criterion, configs, superpoint_configs):
         self.model = model
         self.total_params = sum(p.numel() for p in self.model.parameters())
         print("\nTotal parameters: {}".format(self.total_params))
@@ -32,11 +34,14 @@ class Trainer(object):
         self.n_epochs = self.configs.n_epochs
         self.optimizer = Optimizer(self.model.parameters(), **optimizer_config)
         self.logdir = self.configs.logdir
+        self.test_target = test_target
         self.his_loss = []
         self.best_model = None
         self.best_epoch = 0 
         self.best_loss = 1000
         self.best_prediction = None 
+        self.best_mean_t = 10
+        self.best_mean_q = 10
         # set random seed 
         torch.manual_seed(self.configs.seed)
         if self.configs.GPUs > 0: 
@@ -46,6 +51,10 @@ class Trainer(object):
         
         self.train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.configs.batch_size, 
                                                         shuffle=self.configs.shuffle, num_workers=self.configs.num_workers)
+        self.test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=self.configs.batch_size, 
+                                                        shuffle=0, num_workers=self.configs.num_workers)
+        print('number of train batch: ', len(self.train_loader))
+        print('number of test batch: ', len(self.test_loader))
         self.model = nn.DataParallel(self.model, device_ids=range(self.configs.GPUs))
         if self.configs.GPUs > 0:
             self.model.cuda()
@@ -68,7 +77,8 @@ class Trainer(object):
     
     def train(self):
         save_first_target = True
-        number_batch = len(self.train_loader)
+        number_train_batch = len(self.train_loader)
+        
         start_total_time = time.time()
         total_time = 0.0
         for epoch in range(1,self.n_epochs+1):
@@ -84,7 +94,7 @@ class Trainer(object):
             train_loss = 0.0 
             count = 0
             pbar = enumerate(self.train_loader)
-            pbar = tqdm(pbar, total=number_batch)
+            pbar = tqdm(pbar, total=number_train_batch)
             
             start_time = time.time() # time at begining of each epoch 
             
@@ -116,14 +126,16 @@ class Trainer(object):
             self.his_loss.append(train_loss)
             if epoch % self.configs.print_freq == 0:
                 print("\nEpoch {} --- Loss: {} --- best_loss: {}\n".format(epoch, train_loss, self.best_loss))
+                print("\n mean error t {} --- mean error q: {}\n".format(self.best_mean_t, self.best_mean_q))
             
             # EVALUATION
             if self.configs.do_val:
                 self.model.eval()
-                train_loss = 0.0 
+                test_loss = 0.0 
                 count = 0
-                pbar = enumerate(self.train_loader)
-                pbar = tqdm(pbar, total=number_batch)
+                pbar = enumerate(self.test_loader)
+                number_test_batch = len(self.test_loader)
+                pbar = tqdm(pbar, total=number_test_batch)
                 imgs_list = []
                 predict_ar = np.zeros((1,7))
                 for batch, (images, poses_gt, imgs) in pbar:
@@ -145,9 +157,9 @@ class Trainer(object):
                         loss = self.criterion(predict, poses_gt)
                         imgs_list = imgs_list + list(imgs)
                         predict_ar = np.concatenate((predict_ar, predict.cpu().detach().numpy()), axis = 0)
-                        train_loss += loss.item() * n_samples
+                        test_loss += loss.item() * n_samples
                         count += n_samples
-                train_loss /= count
+                test_loss /= count
                 predict_ar = np.delete(predict_ar, 0, 0)
                 
                 m,_ = predict_ar.shape
@@ -156,28 +168,27 @@ class Trainer(object):
                 predict_ar = np.concatenate((name_col, predict_ar), axis = 1)
                 predict_ar = pd.DataFrame(predict_ar)
                 predict_ar.iloc[:,0] = imgs_list
+                mean_t, mean_q = get_errors(predict_ar.iloc[:,1:].to_numpy(), self.test_target, False)
                 if (epoch % self.configs.snapshot==0):
                     file1 = os.path.join(self.logdir, 'prediction_epoch_{:03d}.txt'.format(epoch))
                     file3 = os.path.join(self.logdir, 'loss_epoch_{:03d}.txt'.format(epoch))
                     print("\n Saving model and prediction result\n")
                     predict_ar.to_csv(file1, header=False, index = False, sep = " ")
-                    pd.DataFrame([train_loss]).to_csv(file3, header=False, index = False, sep = " ")
+                    pd.DataFrame([test_loss]).to_csv(file3, header=False, index = False, sep = " ")
                 # UPDATE best
-                if self.best_loss > train_loss:
-                    self.best_loss = train_loss
+                if self.best_loss > test_loss:
+                    self.best_loss = test_loss
                     self.best_model = copy.deepcopy(self.model.state_dict())
                     self.best_epoch = epoch
                     self.best_prediction = predict_ar
+                    self.best_mean_t = mean_t
+                    self.best_mean_q = mean_q
         
         file_his = os.path.join(self.logdir, 'his_loss.txt')
         pd.DataFrame([self.his_loss]).to_csv(file_his, header = False, index = False)
-        print("\nTraining Completed  --- Total training time: {}\n".format(total_time))
-        print("Total time: {} minutes\n".format((time.time()-start_total_time))/60)
         self.save_best()
-
-        
-        
-        
+        print("\nTraining Completed  --- Total training time: {}\n".format(total_time))
+        print("Total time: {} minutes\n".format((time.time()-start_total_time)/60))
         
         
         

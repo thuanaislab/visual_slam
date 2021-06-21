@@ -108,14 +108,15 @@ class MainModel(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = {**self.default_config,**config}
+        print("num_GNN_layers {}".format(self.config['num_GNN_layers']))
         self.keypoints_encoder = KeypointEncoder(
             self.config['descriptor_dim'], self.config['keypoint_encoder'])
         self.gnn = AttensionalGNN(self.config['num_GNN_layers'], self.config['descriptor_dim'])
         self.conv1 = nn.Conv1d(256, 2048, 1)
         #self.conv2 = nn.Conv1d(512, 1024, 1)
         
-        self.fc1 = nn.Linear(2048, 1024)
-        self.fc2 = nn.Linear(1024,40)
+        self.fc1 = nn.Linear(2048, 40)
+        #self.fc2 = nn.Linear(1024,40)
         self.fc3_r = nn.Linear(40, 4)
         self.fc3_t = nn.Linear(40, 3)
         
@@ -152,7 +153,7 @@ class MainModel(nn.Module):
         out = nn.Flatten(1)(out)
         
         out = F.relu(self.fc1(out))
-        out = F.relu(self.fc2(out))
+        #out = F.relu(self.fc2(out))
         
         out_r = self.fc3_r(out)
         out_t = self.fc3_t(out)

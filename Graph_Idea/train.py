@@ -12,13 +12,14 @@ from model.self_model import MainModel
 from model.criterion import PoseNetCriterion
 from model.dataloaders import CRDataset_train
 import argparse
+import pandas as pd
 
 
 parser = argparse.ArgumentParser()
 
 
-parser.add_argument("--batch_size", type=int, default=24)
-parser.add_argument("--shuffle", type=int, choices=[0, 1], default=0)
+parser.add_argument("--batch_size", type=int, default=40)
+parser.add_argument("--shuffle", type=int, choices=[0, 1], default=1)
 parser.add_argument("--num_workers", type=int, default=0,
                     help="The number of threads employed by the data loader")
 # optimize
@@ -27,7 +28,7 @@ parser.add_argument("--sx", type=float, default=-3,
 parser.add_argument("--sq", type=float, default=-3,
                     help="Smooth term for rotation")
 parser.add_argument("--learn_sxsq", type=int,
-                    choices=[0, 1], default=1, help="whether learn sx, sq")
+                    choices=[0, 1], default=0, help="whether learn sx, sq")
 parser.add_argument("--optimizer", type=str,
                     choices=['sgd', 'adam', 'rmsprop'], default='adam', help="The optimization strategy")
 parser.add_argument("--lr", type=float, default=1e-4,
@@ -51,7 +52,7 @@ parser.add_argument('--snapshot', type=int, default=20,
 
 parser.add_argument('--checkpoint_file', type=str, default=None)
 # log
-parser.add_argument('--logdir', type=str, default='log',
+parser.add_argument('--logdir', type=str, default='results/log',
                     help='The directory of logs')
 parser.add_argument('--print_freq', type=int, default=1,
                     help='Print frequency every n epoch')
@@ -60,10 +61,13 @@ parser.add_argument('--save_pairs', type=int, default = 0,
 
 # dataloader
 parser.add_argument('--data_dir', type=str, default=
-                    "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/",
+                    "",
                     help='The root dir of image dataset')
-parser.add_argument('--poses_path', type=str, default=
-                    "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/poses.txt",
+parser.add_argument('--train_poses_path', type=str, default=
+                    "/home/thuan/Desktop/Public_dataset/Seven_Scenes/chess/poses_train.txt",
+                    help='the root dir of label file poses.txt')
+parser.add_argument('--test_poses_path', type=str, default=
+                    "/home/thuan/Desktop/Public_dataset/Seven_Scenes/chess/poses_test.txt",
                     help='the root dir of label file poses.txt')
 parser.add_argument('--resize', type=list, default = [-1],
                     help='resize image into [H,W]. [-1] no change')
@@ -71,7 +75,7 @@ parser.add_argument('--resize', type=list, default = [-1],
 # architecture
 parser.add_argument('--dropout', type=float, default=0.2,
                     help='The dropout probability')
-parser.add_argument('--num_GNN_layers', type=int, default=9,
+parser.add_argument('--num_GNN_layers', type=int, default=2,
                     help="number of self attention graph network")
 
 # superpoint 
@@ -85,7 +89,8 @@ parser.add_argument('--pre_train', type=str, default=
 args = parser.parse_args()
 
 # dataset 
-train_loader = CRDataset_train(args.poses_path, args.data_dir)
+train_loader = CRDataset_train(args.train_poses_path, args.data_dir)
+test_loeader = CRDataset_train(args.test_poses_path, args.data_dir)
 
 # model 
 config = {"num_GNN_layers":args.num_GNN_layers}
@@ -110,9 +115,12 @@ superPoint_config = {
     'pre_train': args.pre_train,
         }
 
-# train 
+# train
 
-trainer = Trainer(model, optimizer_configs, train_loader, criterion, args, superPoint_config)
+test_target = pd.read_csv(args.test_poses_path, header = None, sep =" ")
+test_target = test_target.iloc[:,1:].to_numpy()
+
+trainer = Trainer(model, optimizer_configs, train_loader, test_loeader,test_target, criterion, args, superPoint_config)
 trainer.train()
 
 

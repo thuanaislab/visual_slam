@@ -20,7 +20,7 @@ import pandas as pd
 parser = argparse.ArgumentParser()
 
 
-parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--batch_size", type=int, default=40)
 parser.add_argument("--shuffle", type=int, choices=[0, 1], default=0)
 parser.add_argument("--num_workers", type=int, default=0,
                     help="The number of threads employed by the data loader")
@@ -33,21 +33,21 @@ parser.add_argument("--learn_sxsq", type=int,
                     choices=[0, 1], default=0, help="whether learn sx, sq")
 
 
-parser.add_argument('--GPUs', type=int, default=1,
+parser.add_argument('--GPUs', type=int, default=2,
                     help='The number of GPUs employed.')
-parser.add_argument('--load_epoch', type=int, default=180,
+parser.add_argument('--load_epoch', type=int, default=40,
                     help='The epoch number will be loaded')
 
 # log
-parser.add_argument('--logdir', type=str, default='log',
+parser.add_argument('--logdir', type=str, default='results/log',
                     help='The directory of logs')
 
 # dataloader
 parser.add_argument('--data_dir', type=str, default=
-                    "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/",
+                    "",
                     help='The root dir of image dataset')
 parser.add_argument('--poses_path', type=str, default=
-                    "/home/thuan/Desktop/visual_slam/Data_for_superglue/TUM_images_SuperGlue/sift/poses.txt",
+                    "/home/thuan/Desktop/Public_dataset/Seven_Scenes/chess/poses_train.txt",
                     help='the root dir of label file poses.txt')
 parser.add_argument('--resize', type=list, default = [-1],
                     help='resize image into [H,W]. [-1] no change')
@@ -59,12 +59,14 @@ parser.add_argument('--pre_train', type=str, default=
                     '/home/thuan/Desktop/visual_slam/Graph_Idea/weights/superpoint_v1.pth',
                     help = "pre-trained model of superpoint")
 # architecture
-parser.add_argument('--num_GNN_layers', type=int, default=9,
+parser.add_argument('--num_GNN_layers', type=int, default=2,
                     help="number of self attention graph network")
 # Results 
 parser.add_argument('--prediction_result', type = str, default=
-                    "/home/thuan/Desktop/visual_slam/Graph_Idea/log/best_prediction.txt",
+                    "/home/thuan/Desktop/visual_slam/Graph_Idea/results/log_0_9_stairs_seq_1/best_prediction.txt",
                     help='path to prediction poses')
+parser.add_argument('--load_best', type=int, default = 1,
+                    help="load the best val model or not")
 
 args = parser.parse_args()
 
@@ -92,18 +94,22 @@ criterion = PoseNetCriterion(args.sx, args.sq, args.learn_sxsq)
 
 
 # eval
-target = pd.read_csv(args.poses_path, header = None, sep =" ")
-predict = pd.read_csv(args.prediction_result, header = None, sep =" ")
-target = target.iloc[:,1:].to_numpy()
-predict = predict.iloc[:,1:].to_numpy()
+# target = pd.read_csv(args.poses_path, header = None, sep =" ")
+# predict = pd.read_csv(args.prediction_result, header = None, sep =" ")
+# target = target.iloc[:,1:].to_numpy()
+# predict = predict.iloc[:,1:].to_numpy()
 
 
-plot_result(predict, target, data_loader)
+# plot_result(predict, target, data_loader)
 
-get_errors(target, predict)
+# get_errors(target, predict)
 
-# eval_ = Evaluator(model, data_loader, criterion, args, superPoint_config)
-# eval_.evaler()
+
+test_target = pd.read_csv(args.poses_path, header = None, sep =" ")
+test_target = test_target.iloc[:,1:].to_numpy()
+
+eval_ = Evaluator(model, data_loader, criterion, args, superPoint_config, test_target)
+eval_.evaler()
 
 
 

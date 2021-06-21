@@ -63,15 +63,21 @@ def get_errors(target, predict, show = True):
 
 class Evaluator(object):
     
-    def __init__(self, model, dataset, criterion, configs, superPoint_config):
+    def __init__(self, model, dataset, criterion, configs, superPoint_config, target):
         self.model = model
         self.sp_model = SuperPoint(superPoint_config).eval()
         self.criterion = criterion
         self.configs = configs
+        self.target = target
         self.logdir = self.configs.logdir
         self.load_epoch = configs.load_epoch
-        self.checkpoint_file = os.path.join(self.logdir, 
-                                            'epoch_{:03d}.pth.tar'.format(self.load_epoch))
+        if not self.configs.load_best:
+            self.checkpoint_file = os.path.join(self.logdir, 
+                                                'epoch_{:03d}.pth.tar'.format(self.load_epoch))
+        else:
+            self.checkpoint_file = os.path.join(self.logdir, 
+                                            'best_result.pth.tar'.format(self.load_epoch))
+        print(self.checkpoint_file)
         
         # data loader 
         
@@ -118,6 +124,9 @@ class Evaluator(object):
             checkpoint = torch.load(self.checkpoint_file, map_location=loc_func)
             # load model 
             self.adapt_load_state_dict(checkpoint.get('model_state_dict', checkpoint))
+            if self.configs.load_best:
+                test_loss = checkpoint['loss']
+                print('Test_loss: {}'.format(test_loss))
             # c_state = checkpoint['criterion_state_dict']
             # append_dict = {k: torch.Tensor([0.0])
             #                for k, _ in self.criterion.named_parameters()
@@ -127,11 +136,15 @@ class Evaluator(object):
         else:
             print("Error: Can not load the model at epoch {}".format(self.load_epoch))
 
-    def evaler(self):
-        number_batch = len(self.data_loader)
+    def evaler(self, is_plot = True):
         self.model.eval()
-        total_loss = 0.0 
+        train_loss = 0.0 
+        count = 0
         pbar = enumerate(self.data_loader)
+        number_batch = len(self.data_loader)
+        pbar = tqdm(pbar, total=number_batch)
+        imgs_list = []
+        predict_ar = np.zeros((1,7))
         for batch, (images, poses_gt, imgs) in pbar:
             if self.configs.GPUs > 0:
                 images = images.cuda(non_blocking=True)
@@ -148,14 +161,31 @@ class Evaluator(object):
                     "image": images,
                     "scores": scores}
                 predict = self.model(_inputs)
-            print(imgs)
-            print(predict)
-            print(poses_gt)
-            loss = self.criterion(predict, poses_gt)
-            total_loss += loss.item()
-            print('loss {}'.format(loss.item()))
-            #break
-        mean_total_loss = total_loss/number_batch
-        print("Recalculation Loss at epoch {}\n Loss: {}".format(self.load_epoch, mean_total_loss))
+                loss = self.criterion(predict, poses_gt)
+                imgs_list = imgs_list + list(imgs)
+                predict_ar = np.concatenate((predict_ar, predict.cpu().detach().numpy()), axis = 0)
+                train_loss += loss.item() * n_samples
+                count += n_samples
+        train_loss /= count
+        print("--LOSS: ", train_loss)
+        predict_ar = np.delete(predict_ar, 0, 0)
+        
+        m,_ = predict_ar.shape
+        assert m == len(imgs_list)
+        name_col = np.zeros((m,1)) 
+        predict_ar = np.concatenate((name_col, predict_ar), axis = 1)
+        predict_ar = pd.DataFrame(predict_ar)
+        predict_ar.iloc[:,0] = imgs_list
+        mean_t, mean_q = get_errors(predict_ar.iloc[:,1:].to_numpy(), self.target, is_plot)
+        
+        if is_plot:
+            plot_result(predict_ar.iloc[:,1:].to_numpy(), self.target, self.data_loader)
+        
+        # if (epoch % self.configs.snapshot==0):
+        #     file1 = os.path.join(self.logdir, 'prediction_epoch_{:03d}.txt'.format(epoch))
+        #     file3 = os.path.join(self.logdir, 'loss_epoch_{:03d}.txt'.format(epoch))
+        #     print("\n Saving model and prediction result\n")
+        #     predict_ar.to_csv(file1, header=False, index = False, sep = " ")
+        #     pd.DataFrame([train_loss]).to_csv(file3, header=False, index = False, sep = " ")
 
     
