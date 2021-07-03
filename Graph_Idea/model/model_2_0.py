@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Wed Jun 23 01:40:52 2021
+
+@author: thuan
+"""
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
 Created on Sat Jun  5 14:44:54 2021
 Self-attention parts are mainly based on SuperGlue paper https://arxiv.org/abs/1911.11763
+VQ-VAE is based on 
+https://github.com/nadavbh12/VQ-VAE/blob/a360e77d43ec43dd5a989f057cbf8e0843bb9b1f/vq_vae/nearest_embed.py#L90
+
 @author: thuan 
 """
 
@@ -10,9 +21,105 @@ Self-attention parts are mainly based on SuperGlue paper https://arxiv.org/abs/1
 import torch 
 from torch import nn
 import torch.nn.functional as F
+import numpy as np
+from torch.autograd import Function, Variable
 import copy
+import os 
 
 BN_MOMENTUM = 0.1
+
+
+
+
+
+class NearestEmbedFunc(Function):
+    """
+    Input:
+    ------
+    x - (batch_size, emb_dim, *)
+        Last dimensions may be arbitrary
+    emb - (emb_dim, num_emb)
+    """
+    @staticmethod
+    def forward(ctx, input, emb):
+        if input.size(1) != emb.size(0):
+            raise RuntimeError('invalid argument: input.size(1) ({}) must be equal to emb.size(0) ({})'.
+                               format(input.size(1), emb.size(0)))
+
+        # save sizes for backward
+        ctx.batch_size = input.size(0)
+        ctx.num_latents = int(np.prod(np.array(input.size()[2:])))
+        ctx.emb_dim = emb.size(0)
+        ctx.num_emb = emb.size(1)
+        ctx.input_type = type(input)
+        ctx.dims = list(range(len(input.size())))
+
+        # expand to be broadcast-able
+        x_expanded = input.unsqueeze(-1)
+
+        num_arbitrary_dims = len(ctx.dims) - 2
+        if num_arbitrary_dims:
+            emb_expanded = emb.view(
+                emb.shape[0], *([1] * num_arbitrary_dims), emb.shape[1])
+        else:
+            emb_expanded = emb
+
+        # find nearest neighbors
+        dist = torch.norm(x_expanded - emb_expanded, 2, 1)
+
+        _, argmin = dist.min(-1)
+
+        shifted_shape = [input.shape[0], *
+                         list(input.shape[2:]), input.shape[1]]
+        result = emb.t().index_select(0, argmin.view(-1)
+                                      ).view(shifted_shape).permute(0, ctx.dims[-1], *ctx.dims[1:-1])
+
+        ctx.save_for_backward(argmin)
+        return result.contiguous(), argmin
+
+    @staticmethod
+    def backward(ctx, grad_output, argmin=None):
+        grad_input = grad_emb = None
+        if ctx.needs_input_grad[0]:
+            grad_input = grad_output
+
+        if ctx.needs_input_grad[1]:
+            argmin, = ctx.saved_variables
+            latent_indices = torch.arange(ctx.num_emb).type_as(argmin)
+            idx_choices = (argmin.view(-1, 1) ==
+                           latent_indices.view(1, -1)).type_as(grad_output.data)
+            n_idx_choice = idx_choices.sum(0)
+            n_idx_choice[n_idx_choice == 0] = 1
+            idx_avg_choices = idx_choices / n_idx_choice
+            grad_output = grad_output.permute(0, *ctx.dims[2:], 1).contiguous()
+            grad_output = grad_output.view(
+                ctx.batch_size * ctx.num_latents, ctx.emb_dim)
+            grad_emb = torch.sum(grad_output.data.view(-1, ctx.emb_dim, 1) *
+                                 idx_avg_choices.view(-1, 1, ctx.num_emb), 0)
+        return grad_input, grad_emb, None, None
+
+
+def nearest_embed(x, emb):
+    return NearestEmbedFunc().apply(x, emb)
+
+
+class NearestEmbed(nn.Module):
+    def __init__(self, num_embeddings, embeddings_dim):
+        super(NearestEmbed, self).__init__()
+        self.weight = nn.Parameter(torch.rand(embeddings_dim, num_embeddings))
+
+    def forward(self, x, weight_sg=False):
+        """Input:
+        ---------
+        x - (batch_size, emb_size, *)
+        """
+        return nearest_embed(x, self.weight.detach() if weight_sg else self.weight)
+
+
+# adapted from https://github.com/rosinality/vq-vae-2-pytorch/blob/master/vqvae.py#L25
+# that adapted from https://github.com/deepmind/sonnet
+
+
 
 def MLP(channels: list, do_bn=False):
     # Multi layer perceptron 
@@ -94,62 +201,8 @@ class AttensionalGNN(nn.Module):
         return descpt
         
 
-    
-class FourDirectionalLSTM(nn.Module):
-    def __init__(self, seq_size, origin_feat_size, hidden_size):
-        super(FourDirectionalLSTM, self).__init__()
-        self.feat_size = origin_feat_size // seq_size
-        self.seq_size = seq_size
-        self.hidden_size = hidden_size
-        self.lstm_rightleft = nn.LSTM(self.feat_size, self.hidden_size, batch_first=True, bidirectional=True)
-        self.lstm_downup = nn.LSTM(self.seq_size, self.hidden_size, batch_first=True, bidirectional=True)
-
-    def init_hidden_(self, batch_size, device):
-        return (torch.randn(2, batch_size, self.hidden_size).to(device),
-                torch.randn(2, batch_size, self.hidden_size).to(device))
-
-    def forward(self, x):
         
-        batch_size = x.size(0)
-        x_rightleft = x.view(batch_size, self.seq_size, self.feat_size)
-        x_downup = x_rightleft.transpose(1, 2)
-        hidden_rightleft = self.init_hidden_(batch_size, x.device)
-        hidden_downup = self.init_hidden_(batch_size, x.device)
-        _, (hidden_state_lr, _) = self.lstm_rightleft(x_rightleft, hidden_rightleft)
-        _, (hidden_state_ud, _) = self.lstm_downup(x_downup, hidden_downup)
-        hlr_fw = hidden_state_lr[0, :, :]
-        hlr_bw = hidden_state_lr[1, :, :]
-        hud_fw = hidden_state_ud[0, :, :]
-        hud_bw = hidden_state_ud[1, :, :]
-        return torch.cat([hlr_fw, hlr_bw, hud_fw, hud_bw], dim=1)
-    
 
-class AttentionBlock(nn.Module):
-    def __init__(self, in_channels):
-        super(AttentionBlock, self).__init__()
-        self.g = nn.Linear(in_channels, in_channels // 8)
-        self.theta = nn.Linear(in_channels, in_channels // 8)
-        self.phi = nn.Linear(in_channels, in_channels // 8)
-
-        self.W = nn.Linear(in_channels // 8, in_channels)
-
-    def forward(self, x):
-        batch_size = x.size(0)
-        out_channels = x.size(1)
-
-        g_x = self.g(x).view(batch_size, out_channels // 8, 1)
-
-        theta_x = self.theta(x).view(batch_size, out_channels // 8, 1)
-        theta_x = theta_x.permute(0, 2, 1)
-        phi_x = self.phi(x).view(batch_size, out_channels // 8, 1)
-        f = torch.matmul(phi_x, theta_x)
-        f_div_C = F.softmax(f, dim=-1)
-
-        y = torch.matmul(f_div_C, g_x)
-        y = y.view(batch_size, out_channels // 8)
-        W_y = self.W(y)
-        z = W_y + x
-        return z
 
 class MainModel(nn.Module):
 
@@ -157,9 +210,7 @@ class MainModel(nn.Module):
         'descriptor_dim': 256,
         'keypoint_encoder': [32, 64, 128, 256],
         'num_GNN_layers': 9,
-        'num_hidden':2048,
-        'num_hiden_2':40,
-        'lstm': False,
+        'num_k': 512,
     }
 
     def __init__(self, config):
@@ -169,25 +220,21 @@ class MainModel(nn.Module):
         self.keypoints_encoder = KeypointEncoder(
             self.config['descriptor_dim'], self.config['keypoint_encoder'])
         self.gnn = AttensionalGNN(self.config['num_GNN_layers'], self.config['descriptor_dim'])
-        self.conv1 = nn.Conv1d(256, self.config['num_hidden'], 1)
+        self.conv1 = nn.Conv1d(256, 2048, 1)
         #self.conv2 = nn.Conv1d(512, 1024, 1)
-        if self.config['lstm']:
-            self.fc1 = nn.Linear(self.config['num_hidden']//2, self.config['num_hiden_2'])
-            #self.fc2 = nn.Linear(1024,40)
-            self.fc3_r = nn.Linear(self.config['num_hidden']//2, 3)
-            self.fc3_t = nn.Linear(self.config['num_hidden']//2, 3)
-        else:
-            self.fc1 = nn.Linear(self.config['num_hidden'], self.config['num_hiden_2'])
-            #self.fc2 = nn.Linear(1024,40)
-            self.fc3_r = nn.Linear(self.config['num_hiden_2'], 3)
-            self.fc3_t = nn.Linear(self.config['num_hiden_2'], 3)
+        
+        self.fc1 = nn.Linear(2048, 40)
+        #self.fc2 = nn.Linear(1024,40)
+        self.fc3_r = nn.Linear(40, 3)
+        self.fc3_t = nn.Linear(40, 3)
         
         self.bn = nn.BatchNorm1d(2048, momentum=BN_MOMENTUM)
         self.bn1 = nn.BatchNorm1d(512, momentum=BN_MOMENTUM)
         self.bn2 = nn.BatchNorm1d(1024, momentum=BN_MOMENTUM)
         self.bn3 = nn.BatchNorm1d(40, momentum=BN_MOMENTUM)
-        if self.config['lstm']:
-            self.lstm4dir = FourDirectionalLSTM(seq_size=32, origin_feat_size=2048, hidden_size=256)
+        
+        # VQ-VAE 
+        self.emb = NearestEmbed(self.config['num_k'],self.config['descriptor_dim'])
 
 
 
@@ -203,32 +250,32 @@ class MainModel(nn.Module):
         # Multi layer transformer network
         descpt = self.gnn(descpt)
         
-        # out = F.relu(self.bn(self.conv1(descpt)))
-        # #out = F.relu(self.bn2(self.conv2(out)))
-        # out = nn.MaxPool1d(out.size(-1))(out)
-        # out = nn.Flatten(1)(out)
+        z_q, argmin = self.emb(descpt, weight_sg=True)
         
-        # out = F.relu(self.bn2(self.fc1(out)))
-        # out = F.relu(self.bn3(self.fc2(out)))
         
-        out = F.relu(self.conv1(descpt))
+        emb, _ = self.emb(descpt.detach())
+        # print("descpt.shape", descpt.shape)
+        # print("z_q.shape", z_q.shape)
+        # out = torch.cat([descpt, z_q], dim = 1)
+        # out = descpt + z_q.detach()
+        out = F.relu(self.conv1(z_q))
         #out = F.relu(self.bn2(self.conv2(out)))
         out = nn.MaxPool1d(out.size(-1))(out)
         out = nn.Flatten(1)(out)
-        if self.config['lstm']:
-            out = self.lstm4dir(out)
-            out_r = self.fc3_r(out)
-            out_t = self.fc3_t(out)
-        else:
-            out = F.relu(self.fc1(out))
-            out_r = self.fc3_r(out)
-            out_t = self.fc3_t(out)
-       
+        
+        out = F.relu(self.fc1(out))
         #out = F.relu(self.fc2(out))
         
-        
+        out_r = self.fc3_r(out)
+        out_t = self.fc3_t(out)
 
-        return torch.cat([out_t, out_r], dim = 1)
+        return torch.cat([out_t, out_r], dim = 1), descpt, emb, argmin
+    
+    def save_emb(self):
+        print("??")
+        save_path = os.path.join(self.config['logdir'], 'embs.pth.tar')
+        checkpoint_dict = {'model_state_dict': self.emb.state_dict()}
+        torch.save(checkpoint_dict, save_path)
 
 
         

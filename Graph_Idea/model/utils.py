@@ -219,4 +219,3 @@ def quaternion_angular_error(q1, q2):
     
     
     
-    

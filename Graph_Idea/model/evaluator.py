@@ -45,8 +45,8 @@ def get_errors(target, predict, show = True):
     predict_t = predict[:,:3]
     predict_q = predict[:,3:]
 
-    predict_q = F.normalize(torch.from_numpy(predict_q))
-    predict_q = predict_q.numpy()
+    #predict_q = F.normalize(torch.from_numpy(predict_q))
+    #predict_q = predict_q.numpy()
 
     t_criterion = lambda t_pred, t_gt: np.linalg.norm(t_pred - t_gt)
     q_criterion = quaternion_angular_error
@@ -58,8 +58,12 @@ def get_errors(target, predict, show = True):
         print ('Error in translation: median {:3.2f} m,  mean {:3.2f} m\n' \
             'Error in rotation: median {:3.2f} degrees, mean {:3.2f} degree'.format(np.median(t_loss), np.mean(t_loss),
                             np.median(q_loss), np.mean(q_loss)))
-    return np.mean(t_loss), np.mean(q_loss)
+    return np.mean(t_loss), np.mean(q_loss), np.median(t_loss), np.median(q_loss)
 
+def qexp(q):
+    n = np.linalg.norm(q)
+    q = np.hstack((np.cos(n), np.sinc(n/np.pi)*q))
+    return q
 
 class Evaluator(object):
     

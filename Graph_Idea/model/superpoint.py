@@ -156,6 +156,7 @@ class SuperPoint(nn.Module):
         x = self.pool(x)
         x = self.relu(self.conv4a(x))
         x = self.relu(self.conv4b(x))
+        
 
         # Compute the dense keypoint scores
         cPa = self.relu(self.convPa(x))
@@ -213,7 +214,7 @@ class SuperPoint(nn.Module):
         x = self.pool(x)
         x = self.relu(self.conv4a(x))
         x = self.relu(self.conv4b(x))
-
+        # x.shape: (b, 128, 60, 80)  
         # Compute the dense keypoint scores
         cPa = self.relu(self.convPa(x))
         scores = self.convPb(cPa)
