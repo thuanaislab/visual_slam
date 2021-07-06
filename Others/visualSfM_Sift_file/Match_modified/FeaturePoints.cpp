@@ -278,7 +278,7 @@ void FeatureData::saveSIFTB2(const char* szFile)
 	_write(fd,&sift_eof, sizeof(int));
 	_close(fd);
 }
-int FeatureData::write_out_data(const char* szFile, bool loc_or_des) {
+int FeatureData::write_out_data(string szFile, bool loc_or_des) {
 	ofstream file;
 	file.open(szFile);
 	int i = 0;
@@ -303,6 +303,26 @@ int FeatureData::write_out_data(const char* szFile, bool loc_or_des) {
 	file.close();
 	return 1;
 }
+int FeatureData::Sift2Txt(string szFile) {
+	ofstream file;
+	file.open(szFile);
+	int i = 0; // index for location data
+	int ii = 0; // index for descriptor data 
+
+	while (i < _locData->width() * _locData->height()) {
+		for (int j = 0; j < _locData->width(); j++) {
+			file << *(_locData->data() + i) << " ";
+			i = i + 1;
+		}
+		for (int jj = 0; jj < _desData->width(); jj++) {
+			file << (int)*(_desData->data() + ii) << " ";
+			ii = ii + 1;
+		}
+		file << "\n";
+	}
+	file.close();
+	return 1;
+}
 int FeatureData::ReadLocFromText(string txtFile) {
 	ifstream fin(txtFile);
 	int npoint, temp;
@@ -312,6 +332,7 @@ int FeatureData::ReadLocFromText(string txtFile) {
 		return 0;
 	}
 	fin >> npoint >> temp;
+	std::cout << "loaded npoint " << npoint << endl;
 	if (npoint > 0) {
 		ResizeFeatureData(npoint, 5, 128);
 		int j = 0;
