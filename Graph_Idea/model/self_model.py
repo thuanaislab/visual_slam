@@ -199,18 +199,10 @@ class MainModel(nn.Module):
         # normalize keypoints 
         keypts = normalize_keypoints(keypts, data['image'].shape)
         # Keypoint MLP encoder
-        descpt = descpt + self.keypoints_encoder(keypts, scores)
+        key_encodes = self.keypoints_encoder(keypts, scores)
+        descpt = descpt + key_encodes
         # Multi layer transformer network
-        descpt = self.gnn(descpt)
-        
-        # out = F.relu(self.bn(self.conv1(descpt)))
-        # #out = F.relu(self.bn2(self.conv2(out)))
-        # out = nn.MaxPool1d(out.size(-1))(out)
-        # out = nn.Flatten(1)(out)
-        
-        # out = F.relu(self.bn2(self.fc1(out)))
-        # out = F.relu(self.bn3(self.fc2(out)))
-        
+        descpt = self.gnn(descpt) 
         out = F.relu(self.conv1(descpt))
         #out = F.relu(self.bn2(self.conv2(out)))
         out = nn.MaxPool1d(out.size(-1))(out)
@@ -223,16 +215,12 @@ class MainModel(nn.Module):
             out = F.relu(self.fc1(out))
             out_r = self.fc3_r(out)
             out_t = self.fc3_t(out)
-       
-        #out = F.relu(self.fc2(out))
         
         
 
         return torch.cat([out_t, out_r], dim = 1)
 
 
-        
-        
         
         
         

@@ -9,7 +9,7 @@ Created on Sat Jun 12 23:37:44 2021
 import model.model_2_0 as v2
 from model.trainer import Trainer
 import model.self_model as v1
-from model.criterion import PoseNetCriterion, CriterionVersion2
+from model.criterion import PoseNetCriterion, CriterionVersion2, PoseNetCriterionPlus
 from model.dataloaders import CRDataset_train
 import argparse
 import pandas as pd
@@ -19,7 +19,7 @@ import os.path as osp
 parser = argparse.ArgumentParser()
 
 
-parser.add_argument("--batch_size", type=int, default=12)
+parser.add_argument("--batch_size", type=int, default=13)
 parser.add_argument("--shuffle", type=int, choices=[0, 1], default=1)
 parser.add_argument("--num_workers", type=int, default=0,
                     help="The number of threads employed by the data loader")
@@ -27,6 +27,10 @@ parser.add_argument("--num_workers", type=int, default=0,
 parser.add_argument("--sx", type=float, default=-3.0,
                     help="Smooth term for translation")
 parser.add_argument("--sq", type=float, default=-3.0,
+                    help="Smooth term for rotation")
+parser.add_argument("--srx", type=float, default=-3.0,
+                    help="Smooth term for translation")
+parser.add_argument("--srq", type=float, default=-3.0,
                     help="Smooth term for rotation")
 parser.add_argument("--learn_sxsq", type=int,
                     choices=[0, 1], default=1, help="whether learn sx, sq")
@@ -41,6 +45,11 @@ parser.add_argument("--lr", type=float, default=3e-4,
 parser.add_argument("--weight_decay", type=float, default=5e-4)
 parser.add_argument("--lr_decay", type=float, default=1,
                     help="The decaying rate of learning rate")
+# Loss Function
+parser.add_argument("--is_VO", type=float, default=0, choices = [0,1],
+                    help="is using VO for loss function")
+parser.add_argument("--ratio", type=float, default=1.0, choices = [0,1],
+                    help="is using VO for loss function")
 
 parser.add_argument('--seed', type=int, default=0,
                     help='')
@@ -130,7 +139,12 @@ else:
 config = {"num_GNN_layers":args.num_GNN_layers, "logdir": args.logdir, "lstm":args.lstm}
 if args.version == 1:
     model = v1.MainModel(config)
-    criterion = PoseNetCriterion(args.sx, args.sq, args.learn_sxsq)
+    if not args.is_VO:
+        criterion = PoseNetCriterion(args.sx, args.sq, args.learn_sxsq)
+    else:
+        print("VO loss is activated")
+        kwargs = dict(sax=args.sx, saq=args.sq,srx=args.srx, srq=args.srq, learn_beta=True, learn_gamma=True,ratio = args.ratio)
+        criterion = PoseNetCriterionPlus(**kwargs)
 elif args.version == 2:
     model = v2.MainModel(config)
     criterion = CriterionVersion2(args.sx, args.sq, args.learn_sxsq, args.vq_coef, args.commit_coef)

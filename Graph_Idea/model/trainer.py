@@ -145,6 +145,7 @@ class Trainer(object):
                     "image": images,
                     "scores": scores}
                 if self.configs.version == 1:
+                        
                     predict = self.model(_inputs)
                     loss = self.criterion(predict, poses_gt)
                 elif self.configs.version == 2:

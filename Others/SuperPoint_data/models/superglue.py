@@ -229,7 +229,6 @@ class SuperGlue(nn.Module):
         """Run SuperGlue on a pair of keypoints and descriptors"""
         desc0, desc1 = data['descriptors0'], data['descriptors1']
         kpts0, kpts1 = data['keypoints0'], data['keypoints1']
-        print(type(kpts0))
 
         if kpts0.shape[1] == 0 or kpts1.shape[1] == 0:  # no keypoints
             shape0, shape1 = kpts0.shape[:-1], kpts1.shape[:-1]
